@@ -1,30 +1,45 @@
-#include "strategy.hpp" // Custom header defining the Strategy class and related functionality
-#include <iostream>     // For input/output operations (e.g., std::cout)
-#include <queue>        // For using the std::queue container to manage events
-#include <mutex>        // For thread-safe access to shared resources (e.g., std::mutex, std::lock_guard)
-#include <thread>       // For creating and managing threads (e.g., std::thread)
-#include <chrono>       // For time-related utilities (e.g., std::this_thread::sleep_for)
+#include "market_data.hpp"  // Handles market data feed and provides market-related events
+#include "strategy.hpp"     // Defines the trading strategy logic and callbacks
+#include "order.hpp"        // Manages order creation and execution
+#include "risk.hpp"         // Implements risk management for validating orders
+#include "logger.hpp"       // Provides logging functionality for system events
+#include "portfolio.hpp"    // Manages portfolio positions and calculates portfolio value
+#include "event_queue.hpp"  // Provides a thread-safe event queue for communication between components
+#include <thread>           // Enables multithreading for concurrent processing
 
 int main() {
-    std::queue<Event> event_queue;
-    std::mutex queue_mutex;
-
+    EventQueue<Event> eventQueue;
+    MarketDataFeed feed(&eventQueue);
     Strategy strategy;
-    std::thread strategy_thread(&Strategy::run, &strategy, std::ref(event_queue), std::ref(queue_mutex));
+    OrderExecution executor;
+    RiskManager risk;
+    PortfolioManager portfolio;
 
-    // Simulate market data feed
-    for (int i = 0; i < 10; ++i) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(500));
+    strategy.set_order_callback([&](const Event& order_event) {
+        if (risk.validate_order(order_event)) {
+            executor.execute_order(order_event);
+            Logger::log("Order executed for: " + order_event.symbol);
+            portfolio.update_position(order_event.symbol, 10, order_event.price);
+        }
+    });
 
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        event_queue.push(Event(EventType::MARKET, "Price tick " + std::to_string(100 + i)));
-        std::cout << "[Main] Event added to queue\n";
-    }
+    strategy.set_logger_callback([](const std::string& msg) {
+        Logger::log(msg);
+    });
 
-    strategy_thread.detach(); // Let strategy thread run independently
-    std::this_thread::sleep_for(std::chrono::seconds(3)); // Let it process some events
+    feed.start(); // starts producer thread
 
-    std::cout << "[Main] Exiting...\n";
+    // Consumer thread that passes data to the strategy
+    std::thread processor([&]() {
+        while (true) {
+            Event e = eventQueue.pop();
+            strategy.on_market_data(e);
+        }
+    });
+
+    // Let the system run
+    processor.join();
+
+    Logger::log("Final Portfolio Value: " + std::to_string(portfolio.get_value()));
     return 0;
 }
-

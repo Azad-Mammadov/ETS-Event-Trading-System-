@@ -1,23 +1,25 @@
-
 #include "strategy.hpp"
-#include <iostream>
-#include <thread>
-#include <chrono>
 
-void Strategy::on_event(Event& event) {
-    std::cout << "[Strategy] Handling event: " << event.content << std::endl;
+void Strategy::set_order_callback(OrderCallback callback) {
+    order_callback = callback;
 }
 
-void Strategy::run(std::queue<Event>& event_queue, std::mutex& queue_mutex) {
-    while (true) {
-        std::this_thread::sleep_for(std::chrono::milliseconds(200));
+void Strategy::set_logger_callback(LogCallback callback) {
+    log_callback = callback;
+}
 
-        std::lock_guard<std::mutex> lock(queue_mutex);
-        if (!event_queue.empty()) {
-            Event event = event_queue.front();
-            event_queue.pop();
-            on_event(event);
+void Strategy::on_market_data(const Event& e) {
+    if (e.price < 150) {
+        Event order(EventType::Order);
+        order.symbol = e.symbol;
+        order.price = e.price;
+
+        if (order_callback) {
+            order_callback(order);
+        }
+
+        if (log_callback) {
+            log_callback("Strategy triggered order for: " + e.symbol + " at price " + std::to_string(e.price));
         }
     }
 }
-
