@@ -43,3 +43,4 @@ int main() {
     Logger::log("Final Portfolio Value: " + std::to_string(portfolio.get_value()));
     return 0;
 }
+

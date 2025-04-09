@@ -9,3 +9,6 @@ include_directories(include)
 file(GLOB SOURCES "src/*.cpp")
 
 add_executable(trading_system ${SOURCES})
+
+# Link the libcurl library
+target_link_libraries(trading_system curl)

@@ -8,6 +8,17 @@
 #include <chrono>           // Provides utilities for time-related functions (e.g., delays)
 #include <iostream>         // For standard input/output operations (e.g., std::cout)
 
+#include <curl/curl.h>
+#include <nlohmann/json.hpp>
+#include <sstream>
+
+// Callback function for cURL to write data into a string
+static size_t WriteCallback(void* contents, size_t size, size_t nmemb, std::string* output) {
+    size_t totalSize = size * nmemb;
+    output->append((char*)contents, totalSize);
+    return totalSize;
+}
+
 // Simulated MarketDataFeed
 class MarketDataFeed {
 private:
