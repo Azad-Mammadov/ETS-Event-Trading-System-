@@ -1,5 +1,5 @@
 #include "MarketDataFetcher.hpp" // Declares the fetch_market_data function and related functionality
-#include <curl/curl.h>           // cURL library for making HTTP requests .
+#include "headers/curl.h"           // cURL library for making HTTP requests .
 #include <nlohmann/json.hpp>     // JSON library for parsing and handling JSON data
 #include <chrono>                // Provides utilities for time-related functions (e.g., delays)
 #include <thread>                // Enables multithreading for concurrent processing

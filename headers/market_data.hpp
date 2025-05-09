@@ -8,7 +8,7 @@
 #include <chrono>           // Provides utilities for time-related functions (e.g., delays)
 #include <iostream>         // For standard input/output operations (e.g., std::cout)
 
-#include <curl/curl.h>
+#include <curl/curl.h> // Ensure cURL is installed and the include path is configured
 #include <nlohmann/json.hpp>
 #include <sstream>
 
@@ -31,18 +31,46 @@ public:
     // Starts the market data feed in a separate thread
     void start() {
         std::thread([this]() {
+            CURL* curl = curl_easy_init();
+            std::string api_key = "cvqogt9r01qp88cms3i0cvqogt9r01qp88cms3ig";
+            std::string symbol = "AAPL";
+    
             while (true) {
-                // Simulate market data
-                Event e;
-                e.symbol = "AAPL"; // Example stock symbol
-                e.price = 150.0 + (std::rand() % 1000) / 100.0; // Random price simulation
-                e.timestamp = "2025-04-08T12:00:00Z"; // Example timestamp
-
-                queue->push(e); // Push the event to the queue
-                std::this_thread::sleep_for(std::chrono::seconds(2)); // Simulate delay
+                if (curl) {
+                    std::string readBuffer;
+                    std::stringstream url;
+                    url << "https://finnhub.io/api/v1/quote?symbol=" << symbol << "&token=" << api_key;
+    
+                    curl_easy_setopt(curl, CURLOPT_URL, url.str().c_str());
+                    curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, WriteCallback);
+                    curl_easy_setopt(curl, CURLOPT_WRITEDATA, &readBuffer);
+    
+                    CURLcode res = curl_easy_perform(curl);
+                    if (res == CURLE_OK) {
+                        try {
+                            auto data = nlohmann::json::parse(readBuffer);
+    
+                            Event e;
+                            e.symbol = symbol;
+                            e.price = data["c"];  // current price
+                            e.timestamp = std::to_string(std::time(nullptr));
+    
+                            queue->push(e);
+                        } catch (...) {
+                            std::cerr << "Failed to parse JSON" << std::endl;
+                        }
+                    } else {
+                        std::cerr << "CURL failed: " << curl_easy_strerror(res) << std::endl;
+                    }
+    
+                    std::this_thread::sleep_for(std::chrono::seconds(10)); // limit hits!
+                }
             }
-        }).detach(); // Detach the thread to run independently
+    
+            curl_easy_cleanup(curl);
+        }).detach();
     }
+    
 };
 
 
